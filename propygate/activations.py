@@ -5,6 +5,10 @@ def identity(x):
     return x
 
 
+def identity_prime(x):
+    return np.ones_like(x)
+
+
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 

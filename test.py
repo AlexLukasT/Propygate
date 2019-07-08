@@ -12,7 +12,8 @@ def main():
 
     model.initialize()
 
-    model.layers[0]._fprop(np.ones(5))
+    print(model.layers[0]._fprop(np.ones(5)).shape)
+    print(model)
 
 
 if __name__ == "__main__":

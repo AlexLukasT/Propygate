@@ -1,4 +1,5 @@
 from propygate.layers import FullyConnected
+import numpy as np
 
 
 class FeedForward:
@@ -46,16 +47,14 @@ class FeedForward:
 
         self._initialized = True
 
-    def train(self, x_train, y_train, n_epochs, lr=1e-3, batch_size=64):
+    def train(self, x_train, y_train, n_epochs, batch_size, optimizer):
 
-        accuracys = []
         for n in range(n_epochs):
             # ToDo: implement batch size
             for x, y in zip(x_train, y_train):
                 outputs = self._forwardprop(x)
-                h = outputs[-1] - y
-                for i in np.arange(0, self.num_layers, -1):
-                    h = h *
+                gradients_w, gradients_b = self._backprop(outputs, y)
+                optimizer.update(gradients_w, gradients_b)
 
     def _forwardprop(self, x):
 
@@ -66,6 +65,21 @@ class FeedForward:
             outputs.append(result)
 
         return outputs
+
+    def _backprop(self, outputs, y):
+
+        gradients_w = [np.empty(layer.weights.shape) for layer in self.layers]
+        gradients_b = [np.empty(layer.bias.shape) for layer in self.layers]
+
+        z_L, a_L = outputs[-1]
+        h = a_L - y
+        for i in np.arange(0, self.num_layers, -1):
+            h *= self.layers[i].activation(z_L, prime=True)
+            gradients_b[i] = h
+            gradients_w[i] = np.dot(h, outputs[i-1][1])
+            h = np.dot(self.layers[i].weights.T, h)
+
+        return gradients_w, gradients_b
 
     def test(self, x_test, y_test):
         pass

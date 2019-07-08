@@ -6,15 +6,22 @@ class FullyConnected:
 
     def __init__(self, num_neurons, activation=None, input_dim=None):
 
-        super().__init__()
-
         self.num_neurons = num_neurons
-        self.activation = activation
+        self._activation = activation if activation else "identity"
         self.input_dim = input_dim
 
         self.type = None
         self.weights = None
         self.bias = None
+
+    def activation(self, x, prime=False):
+
+        if not prime:
+            activation_func = getattr(activations, self._activation)
+        else:
+            activation_func = getattr(activations, self._activation + "_prime")
+
+        return activation_func(x)
 
     def _initialize_weights(self, previous_neurons=None):
 
@@ -24,17 +31,14 @@ class FullyConnected:
         else:
             size = (previous_neurons, self.num_neurons)
 
-        self.weights = np.random.uniform(0, 1, size=size)
+        self.weights = np.random.uniform(-1, 1, size=size)
         self.bias = np.zeros(self.num_neurons)
 
     def _fprop(self, x):
 
-        if self.activation is None:
-            activation = getattr(activations, "identity")
-        else:
-            activation = getattr(activations, self.activation)
+        z = np.dot(x, self.weights) + self.bias
 
-        return activation(np.dot(x, self.weights) + self.bias)
+        return z, self.activation(z)
 
     def _bprop(self):
         pass
