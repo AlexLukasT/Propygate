@@ -11,8 +11,12 @@ class FullyConnected:
         self.input_dim = input_dim
 
         self.type = None
-        self.weights = None
-        self.bias = None
+        self._weights = None
+        self._bias = None
+
+        self._fprop_cache = None
+        self._gradient_w = None
+        self._gradient_b = None
 
     def activation(self, x, prime=False):
 
@@ -26,32 +30,64 @@ class FullyConnected:
     def _initialize_weights(self, previous_neurons=None):
 
         if self.type == "input" and previous_neurons is None:
-            size = (self.input_dim, self.num_neurons)
+            if isinstance(self.input_dim, int):
+                size = (self.input_dim, self.num_neurons)
+            elif isinstance(self.input_dim, (list, tuple, np.ndarray)):
+                size = (np.prod(self.input_dim), self.num_neurons)
+            else:
+                raise TypeError("Invalid input dim: pass in a list, tuple or numpy array")
 
         else:
             size = (previous_neurons, self.num_neurons)
 
-        self.weights = np.random.uniform(-1, 1, size=size)
-        self.bias = np.zeros(self.num_neurons)
+        self._weights = np.random.uniform(-1, 1, size=size)
+        self._bias = np.zeros(self.num_neurons)
 
     def _fprop(self, x):
 
-        z = np.dot(x, self.weights) + self.bias
+        if isinstance(self.input_dim, (list, tuple, np.ndarray)):
+            x = x.flatten()
+        z = np.dot(x, self._weights) + self._bias
+        self._fprop_cache = z
 
-        return z, self.activation(z)
+        return self.activation(z)
 
-    def _bprop(self):
-        pass
+    def _bprop(self, h, a_l, prev_weights):
+        z = self._fprop_cache
+        h *= self.activation(z, prime=True)
+        self.gradient_b = h
+        self.gradient_w = np.outer(a_l, h)
+        return np.dot(prev_weights, h)
+
+    def get_weights(self):
+        return self._weights, self._bias
+
+    def set_weights(self, new_weights, new_bias):
+        if not isinstance(new_weights, np.ndarray):
+            raise TypeError("weights must be a numpy array")
+
+        if not isinstance(new_bias, np.ndarray):
+            raise TypeError("weights must be a numpy array")
+
+        if not new_weights.shape == self._weights.shape:
+            raise ValueError("got weights with shape {}, expected shape {}".format(
+                new_weights.shape, self._weights.shape))
+
+        if not new_bias.shape == self._bias.shape:
+            raise ValueError("got bias with shape {}, expected shape {}".format(
+                new_bias.shape, self._bias.shape))
+
+        self._weights = new_weights
 
     def __repr__(self):
 
-        if self.weights is None:
-            return """Fully Connected layer: type = {}, num_neurons = {}, activation = {}, 
+        if self._weights is None:
+            return """Fully Connected layer: type = {}, num_neurons = {}, activation = {},
                 weights_shape = None, bias_shape = None""".format(
-                self.type, self.num_neurons, self.activation)
+                self.type, self.num_neurons, self._activation)
 
         else:
-            return """Fully Connected layer: type = {}, num_neurons = {}, activation = {}, 
+            return """Fully Connected layer: type = {}, num_neurons = {}, activation = {},
                 weights_shape = {}, bias_shape = {}""".format(
-                self.type, self.num_neurons, self.activation,
-                self.weights.shape, self.bias.shape)
+                self.type, self.num_neurons, self._activation,
+                self._weights.shape, self._bias.shape)
