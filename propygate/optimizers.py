@@ -14,12 +14,12 @@ class GradientDescent(Optimizer):
 
         super().__init__(lr)
 
-    def update(self, weights, gradients_w, gradients_b):
+    def update(self, weights, gradients_w, gradients_b, batch_size):
 
         new_weights = weights
 
         for i in range(len(new_weights)):
-            new_weights[i][0] -= self.lr * gradients_w[i]
-            new_weights[i][1] -= self.lr * gradients_b[i]
+            new_weights[i][0] -= self.lr * gradients_w[i] / batch_size
+            new_weights[i][1] -= self.lr * gradients_b[i] / batch_size
 
         return new_weights

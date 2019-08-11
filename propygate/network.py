@@ -16,6 +16,9 @@ class FeedForward:
         self.optimizer = None
         self.loss = None
 
+        self.metrics = {"train_loss": [], "train_acc": [],
+                        "val_loss": [], "val_acc": []}
+
         self._initialized = False
 
     def add(self, layer):
@@ -60,69 +63,88 @@ class FeedForward:
 
         self._initialized = True
 
-    def train(self, x_train, y_train, epochs=100, batch_size=64):
+    def train(self, x_train, y_train, epochs=100, batch_size=64, val_data=None):
 
-        loss = []
         n = x_train.shape[0]
 
         for epoch in range(epochs):
             print("Epoch {}".format(epoch + 1))
-            loss_tmp = []
+            train_loss_tmp = []
+            train_acc_tmp = []
             gradients_w_tmp = []  # for storing the gradients per batch
             gradients_b_tmp = []
 
+            x_train, y_train = self.shuffle(x_train, y_train)  # shuffle training data
+
             # round up to also use last incomplete batch if it exists
-            # n_iter = int(np.ceil(n / batch_size))
-            # for i in tqdm(range(n_iter)):
-            #     iter_batch = n % batch_size if i == n else batch_size
-            #     for j in range(iter_batch):
-            #         activations = self._forwardprop(x_train[i * batch_size + j])
-            #         y = y_train[i * batch_size + j]
-            #         loss_tmp.append(np.sum(self.loss(activations[-1], y)))
-            #         gradients_w, gradients_b = self._backprop(activations, y)
-            #         gradients_w_tmp.append(gradients_w)
-            #         gradients_b_tmp.append(gradients_b)
+            n_iter = int(np.ceil(n / batch_size))
+            for i in tqdm(range(n_iter)):
+                iter_batch = n % batch_size if i == n_iter - 1 else batch_size
+                for j in range(iter_batch):
+                    activations = self._forwardprop(x_train[i * batch_size + j])
+                    y = y_train[i * batch_size + j]
+                    train_acc_tmp.append(np.argmax(activations[-1]) == np.argmax(y))
+                    train_loss_tmp.append(np.mean(self.loss(activations[-1], y)))
+                    gradients_w, gradients_b = self._backprop(activations, y)
+                    gradients_w_tmp.append(gradients_w)
+                    gradients_b_tmp.append(gradients_b)
 
-            #     gradients_w_mean = self._gradient_mean(gradients_w_tmp)
-            #     gradients_b_mean = self._gradient_mean(gradients_b_tmp)
-            #     weights = self.get_weights()
-            #     new_weights = self.optimizer.update(weights, gradients_w_mean, gradients_b_mean, batch_size)
-            #     self.set_weights(new_weights)
-
-            for i in tqdm(range(n)):
-                activations = self._forwardprop(x_train[i])
-                y = y_train[i]
-                loss_tmp.append(np.sum(self.loss(activations[-1], y)))
-                gradients_w, gradients_b = self._backprop(activations, y)
+                gradients_w_mean = self._gradient_sum(gradients_w_tmp)
+                gradients_b_mean = self._gradient_sum(gradients_b_tmp)
                 weights = self.get_weights()
-                new_weights = self.optimizer.update(weights, gradients_w, gradients_b)
+                new_weights = self.optimizer.update(weights, gradients_w_mean, gradients_b_mean, batch_size)
                 self.set_weights(new_weights)
 
-            loss.append(np.mean(loss_tmp))
+            if val_data:
+                x_val, y_val = val_data
+                outputs = [self.model_output(x) for x in x_val]
+                self.metrics["val_loss"].append(self.loss.total(outputs, y_val))
+                self.metrics["val_acc"].append(self.accuracy(outputs, y_val))
+
+            self.metrics["train_loss"].append(np.mean(train_loss_tmp))
+            self.metrics["train_acc"].append(np.sum(train_acc_tmp) / n)
             print("")
 
-        self.loss = loss
-
     @staticmethod
-    def _gradient_mean(gradients):
+    def _gradient_sum(gradients):
         mean_gradients = []
         for i in range(len(gradients[0])):  # sum over all layers
             tmp = []
             for j in range(len(gradients)):  # sum over batch size
                 tmp.append(gradients[j][i])
-            mean_gradients.append(np.mean(tmp, axis=0))
+            mean_gradients.append(np.sum(tmp, axis=0))
         return mean_gradients
 
-    def print_loss(self, filename="loss.png", **kwargs):
+    @staticmethod
+    def shuffle(x, y):
+        assert x.shape[0] == y.shape[0]
+        perm = np.random.permutation(x.shape[0])
+        return x[perm], y[perm]
+
+    @staticmethod
+    def accuracy(outputs, labels):
+        return np.sum([np.argmax(a) == np.argmax(y) for (a, y) in zip(outputs, labels)]) / len(outputs)
+
+    def plot_metrics(self, filename="metrics.png", **kwargs):
         if os.path.dirname(filename):
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(self.loss, label="Training", linewidth=1.5, **kwargs)
-        ax.set_xlabel("Epoch", fontsize=15)
-        ax.set_ylabel("Loss", fontsize=15)
-        ax.grid(alpha=0.3)
-        ax.legend(fontsize=15)
+        fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        epochs = np.arange(1, len(self.metrics["train_loss"]) + 1)
+
+        for metric, values in self.metrics.items():
+            if metric.endswith("loss") and values:
+                axes[0].plot(epochs, values, label=metric, linewidth=1.5, **kwargs)
+            elif metric.endswith("acc") and values:
+                axes[1].plot(epochs, values, label=metric, linewidth=1.5, **kwargs)
+            else:
+                continue
+        axes[1].set_xlabel("Epoch", fontsize=15)
+        axes[0].set_ylabel("Loss [a.u.]", fontsize=15)
+        axes[1].set_ylabel("Accuracy [%]", fontsize=15)
+        for ax in axes:
+            ax.grid(alpha=0.3)
+            ax.legend(fontsize=15)
         fig.tight_layout()
         fig.savefig(filename, dpi=150)
 
@@ -130,17 +152,14 @@ class FeedForward:
         if len(x.shape) > 1:
             x = x.flatten()
 
-        if x.shape == self.input_dim:
-            return self._predict(x)
+        if x.shape[1:] == self.input_dim:
+            # normalize to probability
+            return [self.model_output(x_sample) / np.sum(self.model_output(x_sample)) for x_sample in x]
         else:
-            return [self._predict(x_sample) for x_sample in x]
+            return self.model_output(x) / np.sum(self.model_output(x))
 
-    def _predict(self, x_sample):
-        a = x_sample
-        for layer in self.layers:
-            a = layer._fprop(a)
-
-        return a
+    def model_output(self, x):
+        return self._forwardprop(x)[-1]
 
     def _forwardprop(self, x):
 
