@@ -1,28 +1,18 @@
-from propygate import network, layers, optimizers, losses, datasets, utils
+from propygate import network, optimizers, losses, datasets, utils
 import numpy as np
 
 
 def main():
 
-    model = network.FeedForward()
-    model.add(layers.FullyConnected(20, activation="relu", input_dim=(28, 28)))
-    model.add(layers.FullyConnected(30, activation="relu"))
-    model.add(layers.FullyConnected(10, activation="sigmoid"))
+    model = network.NeuralNetwork([784, 32, 10])
 
-    optimizer = optimizers.GradientDescent(1e-3)
-    loss = losses.MSE()
-    model.initialize(optimizer, loss)
-
-    print(model)
+    model.build()
 
     (x_train, x_test, x_valid), (y_train, y_test, y_valid) = datasets.load_mnist()
 
-    model.train(x_train[:1000], y_train[:1000], epochs=10, batch_size=64,
-                val_data=(x_valid, y_valid))
-    model.plot_metrics()
+    x_train = np.reshape(x_train, (x_train.shape[0], 28*28))  # flatten images
 
-    prediction = model.predict(x_test[0])
-    utils.plot_example(x_test[0], prediction)
+    model.train(x_train[:10000], y_train[:10000], epochs=10, batch_size=64)
 
 
 if __name__ == "__main__":

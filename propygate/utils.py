@@ -31,3 +31,28 @@ def plot_example(normed_image, prediction, filename="example.png"):
 
     fig.tight_layout()
     fig.savefig(filename, dpi=150)
+
+
+def plot_metrics(metrics, filename="metrics.png"):
+    if os.path.dirname(filename):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    epochs = np.arange(1, len(metrics["train_loss"]) + 1)
+
+    for metric, values in metrics.items():
+        if metric.endswith("loss") and values:
+            axes[0].plot(epochs, values, label=metric, linewidth=1.5)
+        elif metric.endswith("acc") and values:
+            axes[1].plot(epochs, values, label=metric, linewidth=1.5, linestyle="dashed")
+        else:
+            continue
+    axes[1].set_xlabel("Epoch", fontsize=15)
+    axes[0].set_ylabel("Loss [a.u.]", fontsize=15)
+    axes[1].set_ylabel("Accuracy [%]", fontsize=15)
+    for ax in axes:
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=15)
+    fig.tight_layout()
+    print(f"Saved metrics plot to {filename}")
+    fig.savefig(filename, dpi=150)
