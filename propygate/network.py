@@ -18,7 +18,6 @@ class NeuralNetwork:
         self.bias = []
 
         self.metrics = {"train_loss": [], "train_acc": []}
-
         self._initialized = False
 
     def build(self):
@@ -70,18 +69,8 @@ class NeuralNetwork:
             y_batched = self.get_batches(y_train, batch_size)
 
             for i in tqdm(range(len(x_batched))):  # loop over batches
-                gradients_w = [np.zeros(w.shape) for w in self.weights]
-                gradients_b = [np.zeros(b.shape) for b in self.bias]
-                for j in range(len(x_batched[i])):
-                    zs, activations = self.forwardprop(x_batched[i][j])
-                    d_grads_w, d_grads_b = self.backprop(zs, activations, y_batched[i][j])
-                    gradients_w = [gw + dgw for gw, dgw in zip(gradients_w, d_grads_w)]
-                    gradients_b = [gb + dgb for gb, dgb in zip(gradients_b, d_grads_b)]
-                # print(gradients_w[0])
-                self.weights = [w - gw * lr / batch_size for w, gw in
-                                zip(self.weights, gradients_w)]
-                self.bias = [b - gb * lr / batch_size for b, gb in
-                             zip(self.bias, gradients_b)]
+                gradients_w, gradients_b = self.get_gradients(x_batched[i], y_batched[i])
+                self.stochastic_gradient_descent(gradients_w, gradients_b, lr, batch_size)
 
             # now has the same shape as y_train
             outputs = np.array([self.model_output(x) for x in x_train])
@@ -89,6 +78,22 @@ class NeuralNetwork:
             self.metrics["train_acc"].append(self.accuracy(outputs, y_train))
 
         utils.plot_metrics(self.metrics)
+
+    def get_gradients(self, x_batch, y_batch):
+        gradients_w = [np.zeros(w.shape) for w in self.weights]
+        gradients_b = [np.zeros(b.shape) for b in self.bias]
+
+        for i in range(len(x_batch)):  # loop over one batch
+            zs, activations = self.forwardprop(x_batch[i])
+            d_grads_w, d_grads_b = self.backprop(zs, activations, y_batch[i])
+            gradients_w = [gw + dgw for gw, dgw in zip(gradients_w, d_grads_w)]
+            gradients_b = [gb + dgb for gb, dgb in zip(gradients_b, d_grads_b)]
+
+        return gradients_w, gradients_b
+
+    def stochastic_gradient_descent(self, gradients_w, gradients_b, lr, batch_size):
+        self.weights = [w - gw * lr / batch_size for w, gw in zip(self.weights, gradients_w)]
+        self.bias = [b - gb * lr / batch_size for b, gb in zip(self.bias, gradients_b)]
 
     def total_loss(self, outputs, y):
         return np.mean(np.sum((outputs - y) ** 2, axis=1), axis=0)  # MSE

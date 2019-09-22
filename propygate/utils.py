@@ -42,9 +42,10 @@ def plot_metrics(metrics, filename="metrics.png"):
 
     for metric, values in metrics.items():
         if metric.endswith("loss") and values:
-            axes[0].plot(epochs, values, label=metric, linewidth=1.5)
+            axes[0].plot(epochs, values, label=metric.replace("_", " "), linewidth=1.5)
         elif metric.endswith("acc") and values:
-            axes[1].plot(epochs, values, label=metric, linewidth=1.5, linestyle="dashed")
+            axes[1].plot(epochs, values, label=metric.replace("_", " "), linewidth=1.5,
+                         linestyle="dashed")
         else:
             continue
     axes[1].set_xlabel("Epoch", fontsize=15)
