@@ -4,7 +4,7 @@ import numpy as np
 
 def main():
 
-    model = network.NeuralNetwork([784, 32, 10])
+    model = network.NeuralNetwork([784, 64, 64, 10])
 
     model.build()
 
@@ -12,7 +12,7 @@ def main():
 
     x_train = np.reshape(x_train, (x_train.shape[0], 28*28))  # flatten images
 
-    model.train(x_train[:10000], y_train[:10000], epochs=10, batch_size=64)
+    model.train(x_train, y_train, epochs=10, batch_size=64)
 
 
 if __name__ == "__main__":
