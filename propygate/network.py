@@ -17,7 +17,8 @@ class NeuralNetwork:
         self.weights = []
         self.bias = []
 
-        self.metrics = {"train_loss": [], "train_acc": []}
+        self.metrics = {"train_loss": [], "train_acc": [],
+                        "val_loss": [], "val_acc": []}
         self._initialized = False
 
     def build(self):
@@ -56,7 +57,7 @@ class NeuralNetwork:
         return [x[i:i+batch_size] for i in np.arange(0, len(x), batch_size)]
 
     def train(self, x_train, y_train, epochs=100, batch_size=64, val_data=None,
-              lr=1e-2):
+              lr=1e-2, valid_data=None):
         if len(x_train) != len(y_train):
             raise ValueError("x and y must have the same length")
 
@@ -72,10 +73,11 @@ class NeuralNetwork:
                 gradients_w, gradients_b = self.get_gradients(x_batched[i], y_batched[i])
                 self.stochastic_gradient_descent(gradients_w, gradients_b, lr, batch_size)
 
-            # now has the same shape as y_train
-            outputs = np.array([self.model_output(x) for x in x_train])
-            self.metrics["train_loss"].append(self.total_loss(outputs, y_train))
-            self.metrics["train_acc"].append(self.accuracy(outputs, y_train))
+            self.evaluate(x_train, y_train, "train")
+
+            if valid_data is not None:
+                x_valid, y_valid = valid_data
+                self.evaluate(x_valid, y_valid, "val")
 
         utils.plot_metrics(self.metrics)
 
@@ -100,6 +102,12 @@ class NeuralNetwork:
 
     def accuracy(self, outputs, y):
         return np.mean(np.argmax(outputs, axis=1) == np.argmax(y, axis=1))
+
+    def evaluate(self, x_data, y_data, prefix):
+        # now has the same shape as y_data
+        outputs = np.array([self.model_output(x) for x in x_data])
+        self.metrics["{}_loss".format(prefix)].append(self.total_loss(outputs, y_data))
+        self.metrics["{}_acc".format(prefix)].append(self.accuracy(outputs, y_data))
 
     @staticmethod
     def shuffle_in_unison(x, y):
